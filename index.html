@@ -1,1 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apna Mandi - Full Featured Local</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- QR Code Generation Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script type="module">
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- LOCAL DATA STORE ---
+            let localData = { products: {}, sellers: {} };
+            let localOrders = [];
+            let userId = null;
+            let cart = {};
+            let paymentTimerInterval = null;
+
+            // --- DOM ELEMENTS ---
+            const loginPage = document.getElementById('loginPage');
+            const mainPage = document.getElementById('mainPage');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const productGrid = document.getElementById('productGrid');
+            const cartButton = document.getElementById('cartButton');
+            const cartCount = document.getElementById('cartCount');
+            const cartModal = document.getElementById('cartModal');
+            const cartItemsContainer = document.getElementById('cartItems');
+            const cartTotalSpan = document.getElementById('cartTotal');
+            const closeModalButton = document.getElementById('closeModal');
+            const proceedToPayButton = document.getElementById('proceedToPayButton');
+            const orderSuccessModal = document.getElementById('orderSuccessModal');
+            const closeSuccessModalButton = document.getElementById('closeSuccessModal');
+            const userIdDisplay = document.getElementById('userIdDisplay');
+            const paymentModal = document.getElementById('paymentModal');
+            const closePaymentModalButton = document.getElementById('closePaymentModal');
+            const payOnlineButton = document.getElementById('payOnlineButton');
+            const payCODButton = document.getElementById('payCODButton');
+            const paymentTotalSpan = document.getElementById('paymentTotal');
+            const upiPaymentModal = document.getElementById('upiPaymentModal');
+            const upiPaymentAmount = document.getElementById('upiPaymentAmount');
+            const qrCodeContainer = document.getElementById('qrcode');
+            const paymentTimerDisplay = document.getElementById('paymentTimer');
+            const closeUpiModalButton = document.getElementById('closeUpiModal');
+            const simulatePaymentButton = document.getElementById('simulatePaymentButton');
+            const historyButton = document.getElementById('historyButton');
+            const orderHistoryModal = document.getElementById('orderHistoryModal');
+            const closeHistoryModalButton = document.getElementById('closeHistoryModal');
+            const orderHistoryContainer = document.getElementById('orderHistoryContainer');
+            const sellerListingsModal = document.getElementById('sellerListingsModal');
+            const closeSellersModalButton = document.getElementById('closeSellersModal');
+            const sellerListingsContainer = document.getElementById('sellerListingsContainer');
+            const sellerProductName = document.getElementById('sellerProductName');
+
+            // --- INITIALIZATION & DATA SETUP ---
+            function setupDefaultData() {
+                localData.products = {
+                    "potatoes": { name: "Potatoes (Aloo)", description: "Fresh, farm-grade potatoes", imageUrl: "https://placehold.co/400x300/F6E05E/333333?text=Potatoes" },
+                    "onions": { name: "Onions (Pyaaz)", description: "Crisp, pungent onions", imageUrl: "https://placehold.co/400x300/D6BCFA/333333?text=Onions" },
+                    "tomatoes": { name: "Tomatoes (Tamatar)", description: "Juicy, red tomatoes", imageUrl: "https://placehold.co/400x300/F56565/FFFFFF?text=Tomatoes" },
+                    "green_chillies": { name: "Green Chillies", description: "Spicy Kancha Lanka", imageUrl: "https://placehold.co/400x300/48BB78/FFFFFF?text=Green+Chillies" },
+                    "ginger": { name: "Ginger (Ada)", description: "Aromatic and zesty", imageUrl: "https://placehold.co/400x300/FBD38D/333333?text=Ginger" },
+                    "garlic": { name: "Garlic (Rasuna)", description: "Pungent garlic cloves", imageUrl: "https://placehold.co/400x300/F7FAFC/333333?text=Garlic" },
+                    "cabbage": { name: "Cabbage", description: "Fresh green cabbage", imageUrl: "https://placehold.co/400x300/9AE6B4/333333?text=Cabbage" },
+                    "cauliflower": { name: "Cauliflower", description: "Fresh cauliflower heads", imageUrl: "https://placehold.co/400x300/EDF2F7/333333?text=Cauliflower" },
+                    "capsicum": { name: "Capsicum", description: "Green bell peppers", imageUrl: "https://placehold.co/400x300/68D391/FFFFFF?text=Capsicum" },
+                    "carrots": { name: "Carrots", description: "Sweet and crunchy carrots", imageUrl: "https://placehold.co/400x300/F687B3/FFFFFF?text=Carrots" },
+                    "green_peas": { name: "Green Peas", description: "Fresh green peas", imageUrl: "https://placehold.co/400x300/63B3ED/FFFFFF?text=Green+Peas" },
+                    "yogurt": { name: "Fresh Yogurt (Dahi)", description: "Thick and creamy curd", imageUrl: "https://placehold.co/400x300/E2E8F0/333333?text=Yogurt" },
+                    "mustard_oil": { name: "Mustard Oil", description: "Kachi Ghani Sarson Tel", imageUrl: "https://placehold.co/400x300/ECC94B/333333?text=Mustard+Oil" },
+                    "sunflower_oil": { name: "Sunflower Oil", description: "Refined sunflower oil", imageUrl: "https://placehold.co/400x300/FAF089/333333?text=Sunflower+Oil" },
+                    "rice": { name: "Rice (Chaula)", description: "Common Usuna rice", imageUrl: "https://placehold.co/400x300/F0FFF4/333333?text=Rice" },
+                    "semolina": { name: "Semolina (Suji)", description: "For upma and sweets", imageUrl: "https://placehold.co/400x300/FEFCBF/333333?text=Suji" },
+                    "maida": { name: "All-Purpose Flour", description: "Refined Maida", imageUrl: "https://placehold.co/400x300/F7FAFC/333333?text=Maida" },
+                    "chana_dal": { name: "Chana Dal", description: "Split bengal gram", imageUrl: "https://placehold.co/400x300/FBD38D/333333?text=Chana+Dal" },
+                    "masoor_dal": { name: "Masoor Dal", description: "Red lentils", imageUrl: "https://placehold.co/400x300/FEB2B2/333333?text=Masoor+Dal" },
+                    "turmeric": { name: "Turmeric Powder", description: "Aromatic Haldi powder", imageUrl: "https://placehold.co/400x300/F6E05E/333333?text=Turmeric" },
+                    "chilli": { name: "Red Chilli Powder", description: "Spicy Lal Mirch powder", imageUrl: "https://placehold.co/400x300/E53E3E/FFFFFF?text=Chilli+Powder" },
+                    "cumin_seeds": { name: "Cumin Seeds (Jeera)", description: "Earthy and aromatic", imageUrl: "https://placehold.co/400x300/B794F4/FFFFFF?text=Cumin" },
+                    "coriander_powder": { name: "Coriander Powder", description: "Dhania Gunda", imageUrl: "https://placehold.co/400x300/90CDF4/333333?text=Coriander" },
+                    "tamarind": { name: "Tamarind (Imli)", description: "Sweet and sour imli", imageUrl: "https://placehold.co/400x300/718096/FFFFFF?text=Tamarind" }
+                };
+
+                localData.sellers = {
+                    potatoes: [{ sellerName: "Raju's Fresh Produce", price: 25, unit: "kg", quality: "A-Grade" }, { sellerName: "Wholesale Kings", price: 22, unit: "kg", quality: "Standard" }],
+                    onions: [{ sellerName: "Raju's Fresh Produce", price: 30, unit: "kg", quality: "A-Grade" }, { sellerName: "Wholesale Kings", price: 28, unit: "kg", quality: "Standard" }],
+                    tomatoes: [{ sellerName: "Mina's Organics", price: 50, unit: "kg", quality: "Organic, Ripe" }, { sellerName: "Raju's Fresh Produce", price: 42, unit: "kg", quality: "A-Grade" }],
+                    green_chillies: [{ sellerName: "Raju's Fresh Produce", price: 80, unit: "kg", quality: "Spicy" }, { sellerName: "Local Farms Coop", price: 75, unit: "kg", quality: "Standard" }],
+                    ginger: [{ sellerName: "Raju's Fresh Produce", price: 120, unit: "kg", quality: "Fresh" }, { sellerName: "Wholesale Kings", price: 110, unit: "kg", quality: "Standard" }],
+                    garlic: [{ sellerName: "Raju's Fresh Produce", price: 150, unit: "kg", quality: "Large Cloves" }, { sellerName: "Wholesale Kings", price: 140, unit: "kg", quality: "Standard" }],
+                    cabbage: [{ sellerName: "Local Farms Coop", price: 30, unit: "kg", quality: "Fresh" }, { sellerName: "Wholesale Kings", price: 25, unit: "kg", quality: "Standard" }],
+                    cauliflower: [{ sellerName: "Local Farms Coop", price: 40, unit: "piece", quality: "Large" }, { sellerName: "Wholesale Kings", price: 35, unit: "piece", quality: "Medium" }],
+                    capsicum: [{ sellerName: "Mina's Organics", price: 70, unit: "kg", quality: "Organic" }, { sellerName: "Raju's Fresh Produce", price: 60, unit: "kg", quality: "Standard" }],
+                    carrots: [{ sellerName: "Mina's Organics", price: 60, unit: "kg", quality: "Organic" }, { sellerName: "Raju's Fresh Produce", price: 50, unit: "kg", quality: "Standard" }],
+                    green_peas: [{ sellerName: "Local Farms Coop", price: 70, unit: "kg", quality: "Fresh" }, { sellerName: "Wholesale Kings", price: 65, unit: "kg", quality: "Frozen" }],
+                    yogurt: [{ sellerName: "Amul Dairy", price: 80, unit: "kg", quality: "Pasteurized" }, { sellerName: "Local Farms Coop", price: 75, unit: "kg", quality: "Farm Fresh" }],
+                    mustard_oil: [{ sellerName: "Puri Oils Ltd.", price: 150, unit: "litre", quality: "Cold Pressed" }, { sellerName: "Daily Needs Grocer", price: 135, unit: "litre", quality: "Standard" }],
+                    sunflower_oil: [{ sellerName: "Fortune Oils", price: 140, unit: "litre", quality: "Refined" }, { sellerName: "Daily Needs Grocer", price: 130, unit: "litre", quality: "Standard" }],
+                    rice: [{ sellerName: "Odisha Grains", price: 45, unit: "kg", quality: "Parboiled" }, { sellerName: "Wholesale Kings", price: 40, unit: "kg", quality: "Standard" }],
+                    semolina: [{ sellerName: "Daily Needs Grocer", price: 60, unit: "kg", quality: "Fine" }, { sellerName: "Wholesale Kings", price: 55, unit: "kg", quality: "Standard" }],
+                    maida: [{ sellerName: "Odisha Grains", price: 50, unit: "kg", quality: "Fine" }, { sellerName: "Wholesale Kings", price: 45, unit: "kg", quality: "Standard" }],
+                    chana_dal: [{ sellerName: "Odisha Grains", price: 90, unit: "kg", quality: "Premium" }, { sellerName: "Wholesale Kings", price: 85, unit: "kg", quality: "Standard" }],
+                    masoor_dal: [{ sellerName: "Odisha Grains", price: 110, unit: "kg", quality: "Polished" }, { sellerName: "Daily Needs Grocer", price: 105, unit: "kg", quality: "Standard" }],
+                    turmeric: [{ sellerName: "Odisha Spice Co.", price: 180, unit: "kg", quality: "Premium Grade" }, { sellerName: "Daily Needs Grocer", price: 160, unit: "kg", quality: "Standard" }],
+                    chilli: [{ sellerName: "Odisha Spice Co.", price: 250, unit: "kg", quality: "Extra Hot" }, { sellerName: "Wholesale Kings", price: 220, unit: "kg", quality: "Standard" }],
+                    cumin_seeds: [{ sellerName: "Odisha Spice Co.", price: 300, unit: "kg", quality: "Aromatic" }, { sellerName: "Daily Needs Grocer", price: 280, unit: "kg", quality: "Standard" }],
+                    coriander_powder: [{ sellerName: "Odisha Spice Co.", price: 200, unit: "kg", quality: "Freshly Ground" }, { sellerName: "Wholesale Kings", price: 180, unit: "kg", quality: "Standard" }],
+                    tamarind: [{ sellerName: "Local Farms Coop", price: 100, unit: "kg", quality: "Seedless" }, { sellerName: "Wholesale Kings", price: 85, unit: "kg", quality: "With Seeds" }]
+                };
+            }
+
+            // --- AUTHENTICATION (SIMULATED) ---
+            function setupAuth() {
+                loginPage.classList.remove('hidden');
+                mainPage.classList.add('hidden');
+            }
+            
+            function handleLoginClick() {
+                loadingIndicator.classList.remove('hidden');
+                setTimeout(() => {
+                    userId = 'local_vendor_' + Date.now();
+                    loginPage.classList.add('hidden');
+                    mainPage.classList.remove('hidden');
+                    userIdDisplay.textContent = `Vendor ID: ${userId.substring(0, 18)}...`;
+                    renderProducts();
+                    loadingIndicator.classList.add('hidden');
+                }, 500);
+            }
+
+            // --- PRODUCT & SELLER LOGIC ---
+            function renderProducts() {
+                productGrid.innerHTML = '';
+                for (const productId in localData.products) {
+                    const product = localData.products[productId];
+                    productGrid.innerHTML += `
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer view-sellers-btn" data-product-id="${productId}" data-product-name="${product.name}">
+                            <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-32 object-cover pointer-events-none" onerror="this.onerror=null;this.src='https://placehold.co/400x300/e2e8f0/4a5568?text=Image+Error';">
+                            <div class="p-4 pointer-events-none">
+                                <h3 class="font-bold text-lg text-gray-800">${product.name}</h3>
+                                <p class="text-gray-500 text-sm">Multiple sellers</p>
+                            </div>
+                        </div>`;
+                }
+            }
+            
+            function fetchAndDisplaySellers(productId, productName) {
+                sellerProductName.textContent = productName;
+                sellerListingsContainer.innerHTML = '';
+                const sellers = localData.sellers[productId] || [];
+
+                if (sellers.length === 0) {
+                    sellerListingsContainer.innerHTML = `<p class="text-center text-gray-500 py-8">No sellers found for this product.</p>`;
+                } else {
+                    sellers.forEach((seller, index) => {
+                        const sellerId = `seller_${index}`;
+                        sellerListingsContainer.innerHTML += `
+                            <div class="bg-white rounded-lg shadow-sm border p-4 flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold text-gray-800">${seller.sellerName}</p>
+                                    <p class="text-sm text-gray-600">${seller.quality}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-xl font-bold text-green-600">₹${seller.price}/${seller.unit}</p>
+                                    <button class="add-seller-item-btn mt-2 bg-green-500 text-white font-bold py-1 px-3 rounded-lg hover:bg-green-600"
+                                        data-product-id="${productId}"
+                                        data-product-name="${productName}"
+                                        data-seller-id="${sellerId}"
+                                        data-seller-name="${seller.sellerName}"
+                                        data-price="${seller.price}"
+                                        data-unit="${seller.unit}">
+                                        Add
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                sellerListingsModal.classList.remove('hidden');
+            }
+
+            // --- CART LOGIC ---
+            function updateCart(itemData) {
+                const cartItemId = `${itemData.productId}_${itemData.sellerId}`;
+                if (cart[cartItemId]) {
+                    cart[cartItemId].quantity++;
+                } else {
+                    cart[cartItemId] = { ...itemData, quantity: 1 };
+                }
+                updateCartUI();
+            }
+
+            function updateCartUI() {
+                let totalItems = 0, totalPrice = 0;
+                cartItemsContainer.innerHTML = '';
+                for (const id in cart) {
+                    const item = cart[id];
+                    totalItems += item.quantity;
+                    totalPrice += parseFloat(item.price) * item.quantity;
+                    const cartItemEl = document.createElement('div');
+                    cartItemEl.className = 'flex justify-between items-center py-3 border-b';
+                    cartItemEl.innerHTML = `
+                        <div>
+                            <p class="font-semibold">${item.productName}</p>
+                            <p class="text-xs text-gray-500">from ${item.sellerName}</p>
+                            <p class="text-sm text-gray-600">₹${item.price} x ${item.quantity}</p>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="font-bold mr-4">₹${(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
+                            <button data-id="${id}" class="remove-item-btn text-red-500 hover:text-red-700">&times;</button>
+                        </div>`;
+                    cartItemsContainer.appendChild(cartItemEl);
+                }
+                cartCount.textContent = totalItems;
+                cartTotalSpan.textContent = `₹${totalPrice.toFixed(2)}`;
+                paymentTotalSpan.textContent = `₹${totalPrice.toFixed(2)}`;
+                cartButton.classList.toggle('animate-bounce', totalItems > 0);
+                proceedToPayButton.disabled = totalItems === 0;
+            }
+            
+            function removeFromCart(cartItemId) {
+                if (cart[cartItemId]) {
+                    delete cart[cartItemId];
+                    updateCartUI();
+                }
+            }
+            
+            // --- ORDER & PAYMENT LOGIC ---
+            function placeOrder(paymentMethod, paymentStatus) {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(6, 0, 0, 0);
+
+                const orderData = {
+                    id: 'order_' + Date.now(),
+                    items: { ...cart },
+                    total: parseFloat(cartTotalSpan.textContent.replace('₹', '')),
+                    status: 'Order Placed',
+                    paymentMethod,
+                    paymentStatus,
+                    createdAt: new Date(),
+                    deliveryEta: tomorrow
+                };
+                
+                localOrders.push(orderData);
+                cart = {};
+                updateCartUI();
+                showSuccessModal(paymentMethod);
+            }
+
+            function showSuccessModal(paymentMethod) {
+                const successModal = document.getElementById('orderSuccessModal');
+                successModal.querySelector('h2').textContent = 'Order Placed!';
+                if (paymentMethod === 'cod') {
+                    successModal.querySelector('p').textContent = 'Your supplies will be delivered by 6 AM. Please pay on delivery.';
+                } else {
+                    successModal.querySelector('p').textContent = 'Payment successful! Your supplies will be delivered by 6 AM.';
+                }
+                successModal.classList.remove('hidden');
+            }
+
+            function startPaymentTimer(duration, display) {
+                let timer = duration, minutes, seconds;
+                clearInterval(paymentTimerInterval);
+                paymentTimerInterval = setInterval(() => {
+                    minutes = parseInt(timer / 60, 10);
+                    seconds = parseInt(timer % 60, 10);
+                    minutes = minutes < 10 ? "0" + minutes : minutes;
+                    seconds = seconds < 10 ? "0" + seconds : seconds;
+                    display.textContent = "Expires in: " + minutes + ":" + seconds;
+                    if (--timer < 0) {
+                        clearInterval(paymentTimerInterval);
+                        upiPaymentModal.classList.add('hidden');
+                    }
+                }, 1000);
+            }
+
+            // --- ORDER HISTORY ---
+            function fetchAndDisplayOrders() {
+                orderHistoryContainer.innerHTML = '';
+                const sortedOrders = [...localOrders].sort((a, b) => b.createdAt - a.createdAt);
+                
+                if (sortedOrders.length === 0) {
+                    orderHistoryContainer.innerHTML = `<p class="text-center text-gray-500 py-8">You have no past orders.</p>`;
+                } else {
+                    sortedOrders.forEach(renderOrder);
+                }
+                orderHistoryModal.classList.remove('hidden');
+            }
+
+            function renderOrder(order) {
+                const orderDate = order.createdAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+                const paymentStatusClass = order.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+                const paymentStatusText = order.paymentStatus === 'paid' ? 'Paid' : 'Pending';
+                
+                let itemsHtml = '<ul class="list-disc list-inside mt-2 pl-4 text-sm text-gray-600">';
+                for(const key in order.items) {
+                    const item = order.items[key];
+                    itemsHtml += `<li>${item.productName} (${item.quantity} ${item.unit}) from <strong>${item.sellerName}</strong></li>`;
+                }
+                itemsHtml += '</ul>';
+
+                orderHistoryContainer.innerHTML += `
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-bold text-gray-800">Order from ${orderDate}</p>
+                                <p class="text-sm text-gray-500">Total: <span class="font-bold">₹${order.total.toFixed(2)}</span></p>
+                            </div>
+                            <span class="text-xs font-semibold px-2 py-1 rounded-full ${paymentStatusClass}">${paymentStatusText}</span>
+                        </div>
+                        <div class="mt-4"><p class="font-semibold text-sm text-gray-700">Items:</p>${itemsHtml}</div>
+                    </div>`;
+            }
+
+            // --- EVENT LISTENERS ---
+            document.getElementById('loginButton').addEventListener('click', handleLoginClick);
+            cartButton.addEventListener('click', () => cartModal.classList.remove('hidden'));
+            closeModalButton.addEventListener('click', () => cartModal.classList.add('hidden'));
+            
+            productGrid.addEventListener('click', (e) => {
+                const target = e.target.closest('.view-sellers-btn');
+                if (target) {
+                    fetchAndDisplaySellers(target.dataset.productId, target.dataset.productName);
+                }
+            });
+
+            sellerListingsContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('add-seller-item-btn')) {
+                    updateCart(e.target.dataset);
+                    const button = e.target;
+                    button.textContent = 'Added!';
+                    button.classList.remove('bg-green-500');
+                    button.classList.add('bg-blue-500');
+                    setTimeout(() => {
+                        button.textContent = 'Add';
+                        button.classList.remove('bg-blue-500');
+                        button.classList.add('bg-green-500');
+                    }, 1000);
+                }
+            });
+            
+            closeSellersModalButton.addEventListener('click', () => sellerListingsModal.classList.add('hidden'));
+
+            cartItemsContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-item-btn')) {
+                    removeFromCart(e.target.dataset.id);
+                }
+            });
+
+            proceedToPayButton.addEventListener('click', () => {
+                cartModal.classList.add('hidden');
+                paymentModal.classList.remove('hidden');
+            });
+
+            closePaymentModalButton.addEventListener('click', () => paymentModal.classList.add('hidden'));
+            
+            payCODButton.addEventListener('click', () => {
+                paymentModal.classList.add('hidden');
+                placeOrder('cod', 'pending');
+            });
+
+            payOnlineButton.addEventListener('click', () => {
+                paymentModal.classList.add('hidden');
+                const amount = parseFloat(cartTotalSpan.textContent.replace('₹', ''));
+                upiPaymentAmount.textContent = `₹${amount.toFixed(2)}`;
+                const upiString = `upi://pay?pa=apnamandi@exampleupi&pn=Apna%20Mandi&am=${amount.toFixed(2)}&cu=INR&tn=Order${Date.now()}`;
+                qrCodeContainer.innerHTML = '';
+                new QRCode(qrCodeContainer, {
+                    text: upiString, width: 192, height: 192,
+                    colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H
+                });
+                upiPaymentModal.classList.remove('hidden');
+                startPaymentTimer(60 * 5, paymentTimerDisplay);
+            });
+
+            simulatePaymentButton.addEventListener('click', () => {
+                if(!upiPaymentModal.classList.contains('hidden')) {
+                    clearInterval(paymentTimerInterval);
+                    upiPaymentModal.classList.add('hidden');
+                    placeOrder('online', 'paid');
+                }
+            });
+            
+            closeUpiModalButton.addEventListener('click', () => {
+                upiPaymentModal.classList.add('hidden');
+                clearInterval(paymentTimerInterval);
+            });
+
+            closeSuccessModalButton.addEventListener('click', () => orderSuccessModal.classList.add('hidden'));
+            
+            historyButton.addEventListener('click', fetchAndDisplayOrders);
+            closeHistoryModalButton.addEventListener('click', () => orderHistoryModal.classList.add('hidden'));
+
+            // --- INITIAL LOAD ---
+            setupDefaultData();
+            setupAuth();
+        });
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .modal-bg { background-color: rgba(0,0,0,0.5); }
+        #qrcode img { margin: auto; }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="loadingIndicator" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500"></div>
+    </div>
+
+    <div id="loginPage" class="min-h-screen flex flex-col items-center justify-center bg-green-50">
+        <div class="text-center p-8">
+            <h1 class="text-4xl font-bold text-green-700 mb-2">Apna Mandi</h1>
+            <p class="text-gray-600 mb-8">Your daily supplies, delivered.</p>
+            <button id="loginButton" class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-green-700 transition-transform transform hover:scale-105">Start Ordering</button>
+        </div>
+    </div>
+
+    <div id="mainPage" class="hidden">
+        <header class="bg-white shadow-md sticky top-0 z-20">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-green-600">Apna Mandi</h1>
+                <div id="userIdDisplay" class="text-xs text-gray-500 hidden sm:block"></div>
+                <div class="flex items-center space-x-4">
+                    <button id="historyButton" class="text-gray-600 hover:text-green-600">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </button>
+                    <button id="cartButton" class="relative">
+                        <svg class="w-8 h-8 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+        <main class="container mx-auto p-4">
+             <div id="productGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="cartModal" class="fixed inset-0 modal-bg flex items-center justify-center z-30 hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-11/12 md:w-1/2 lg:w-1/3 m-4">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h2 class="text-xl font-bold">Your Order</h2>
+                <button id="closeModal" class="text-2xl font-bold">&times;</button>
+            </div>
+            <div id="cartItems" class="p-4 max-h-64 overflow-y-auto"></div>
+            <div class="p-4 border-t">
+                <div class="flex justify-between items-center font-bold text-lg mb-4">
+                    <span>Total:</span>
+                    <span id="cartTotal">₹0</span>
+                </div>
+                <button id="proceedToPayButton" class="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 disabled:bg-gray-400">Proceed to Pay</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sellerListingsModal" class="fixed inset-0 modal-bg flex items-center justify-center z-40 hidden">
+        <div class="bg-gray-50 rounded-lg shadow-2xl w-11/12 md:w-1/2 lg:w-2/5 m-4 h-5/6 flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center bg-white rounded-t-lg">
+                <h2 class="text-xl font-bold">Sellers for <span id="sellerProductName"></span></h2>
+                <button id="closeSellersModal" class="text-2xl font-bold">&times;</button>
+            </div>
+            <div id="sellerListingsContainer" class="p-4 flex-grow overflow-y-auto space-y-3"></div>
+        </div>
+    </div>
+
+    <div id="paymentModal" class="fixed inset-0 modal-bg flex items-center justify-center z-40 hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-11/12 md:w-1/2 lg:w-1/3 m-4">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h2 class="text-xl font-bold">Select Payment Method</h2>
+                <button id="closePaymentModal" class="text-2xl font-bold">&times;</button>
+            </div>
+            <div class="p-6">
+                <div class="flex justify-between items-center font-bold text-lg mb-6">
+                    <span>Amount to Pay:</span>
+                    <span id="paymentTotal">₹0</span>
+                </div>
+                <div class="space-y-4">
+                    <button id="payOnlineButton" class="w-full flex items-center justify-center bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700">Pay Online (UPI)</button>
+                    <button id="payCODButton" class="w-full flex items-center justify-center bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-700">Cash on Delivery</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="upiPaymentModal" class="fixed inset-0 modal-bg flex items-center justify-center z-40 hidden">
+        <div class="bg-white rounded-lg shadow-2xl text-center p-8 m-4 w-11/12 sm:w-auto">
+             <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Complete Payment</h2>
+                <button id="closeUpiModal" class="text-2xl font-bold">&times;</button>
+            </div>
+            <p class="text-gray-600 mb-4">Scan the QR code with your UPI app</p>
+            <div id="qrcode" class="p-2 border-4 border-gray-300 rounded-lg inline-block"></div>
+            <p class="text-3xl font-bold mt-4" id="upiPaymentAmount">₹0</p>
+            <p id="paymentTimer" class="text-red-500 font-semibold mt-2 text-lg">Expires in: 05:00</p>
+            <p class="text-gray-500 mt-4 animate-pulse">Waiting for payment confirmation...</p>
+            <button id="simulatePaymentButton" class="mt-6 w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">
+                (Demo) Simulate Successful Payment
+            </button>
+        </div>
+    </div>
+
+    <div id="orderHistoryModal" class="fixed inset-0 modal-bg flex items-center justify-center z-30 hidden">
+        <div class="bg-gray-50 rounded-lg shadow-2xl w-11/12 md:w-1/2 lg:w-2/5 m-4 h-5/6 flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center bg-white rounded-t-lg">
+                <h2 class="text-xl font-bold">Order History</h2>
+                <button id="closeHistoryModal" class="text-2xl font-bold">&times;</button>
+            </div>
+            <div id="orderHistoryContainer" class="p-4 flex-grow overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div id="orderSuccessModal" class="fixed inset-0 modal-bg flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-2xl text-center p-8 m-4">
+            <div class="text-6xl text-green-500 mb-4">✓</div>
+            <h2 class="text-2xl font-bold mb-2"></h2>
+            <p class="text-gray-600 mb-6"></p>
+            <button id="closeSuccessModal" class="bg-green-500 text-white font-bold py-2 px-6 rounded-lg">OK</button>
+        </div>
+    </div>
+
+</body>
+</html>
 
